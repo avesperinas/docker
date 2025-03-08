@@ -3,7 +3,7 @@ name: Build and Push Docker Image to GHCR
 on:
   push:
     branches:
-      - master
+      - master  # Se activará cuando se haga push a master
 
 jobs:
   build-and-push:
@@ -23,15 +23,19 @@ jobs:
           INDEX_FILE="index.yml"
           COMMIT_MSG="${{ github.event.head_commit.message }}"
 
+          # Extraer el nombre de la imagen y la versión desde el mensaje de commit (name:version)
           IMAGE_NAME=$(echo "$COMMIT_MSG" | cut -d ':' -f1)
           IMAGE_TAG_VERSION=$(echo "$COMMIT_MSG" | cut -d ':' -f2)
 
+          # Mostrar los valores extraídos
           echo "Commit message: $COMMIT_MSG"
           echo "Image name: $IMAGE_NAME"
           echo "Image tag version: $IMAGE_TAG_VERSION"
 
-          IMAGE_PATH=$(grep -A 1 "name: $IMAGE_NAME" $INDEX_FILE | grep "path:" | cut -d ' ' -f2)
+          # Buscar la ruta de la imagen en index.yml
+          IMAGE_PATH=$(grep -A 1 "name: $IMAGE_NAME" $INDEX_FILE | grep "path:" | cut -d ' ' -f2-)
 
+          # Validar si la ruta de la imagen se encuentra en index.yml
           if [ -z "$IMAGE_PATH" ]; then
             echo "❌ ERROR: Image '$IMAGE_NAME' not found in index.yml"
             exit 78
@@ -39,6 +43,7 @@ jobs:
 
           echo "Image path: $IMAGE_PATH"
 
+          # Guardar variables en el entorno de GitHub Actions
           echo "IMAGE_PATH=$IMAGE_PATH" >> $GITHUB_ENV
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "IMAGE_TAG_VERSION=$IMAGE_TAG_VERSION" >> $GITHUB_ENV
