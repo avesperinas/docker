@@ -17,25 +17,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read index.yml
+      - name: Install yq
+        run: |
+          # Instalar yq (si no está disponible)
+          sudo apt-get update && sudo apt-get install -y yq
+
+      - name: Read index.yml and extract image path
         id: read_index
         run: |
           INDEX_FILE="index.yml"
           COMMIT_MSG="${{ github.event.head_commit.message }}"
 
-          # Extraer el nombre de la imagen y la versión desde el mensaje de commit (name:version)
           IMAGE_NAME=$(echo "$COMMIT_MSG" | cut -d ':' -f1)
           IMAGE_TAG_VERSION=$(echo "$COMMIT_MSG" | cut -d ':' -f2)
 
-          # Mostrar los valores extraídos
           echo "Commit message: $COMMIT_MSG"
           echo "Image name: $IMAGE_NAME"
           echo "Image tag version: $IMAGE_TAG_VERSION"
 
-          # Buscar la ruta de la imagen en index.yml
-          IMAGE_PATH="docker/python-dev/py_3_12"
+          IMAGE_PATH=$(yq eval ".images[] | select(.name == \"$IMAGE_NAME\") | .path" $INDEX_FILE)
 
-          # Validar si la ruta de la imagen se encuentra en index.yml
           if [ -z "$IMAGE_PATH" ]; then
             echo "❌ ERROR: Image '$IMAGE_NAME' not found in index.yml"
             exit 78
@@ -43,7 +44,6 @@ jobs:
 
           echo "Image path: $IMAGE_PATH"
 
-          # Guardar variables en el entorno de GitHub Actions
           echo "IMAGE_PATH=$IMAGE_PATH" >> $GITHUB_ENV
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "IMAGE_TAG_VERSION=$IMAGE_TAG_VERSION" >> $GITHUB_ENV
