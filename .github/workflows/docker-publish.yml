@@ -1,0 +1,49 @@
+name: Build and Push Docker Image to GHCR
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract commit message
+        id: commit_message
+        run: echo "msg=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+
+      - name: Validate commit message format
+        run: |
+          COMMIT_MSG="${{ env.msg }}"
+
+          if [[ ! "$COMMIT_MSG" =~ ^docker/([^/]+)/([^:]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "❌ ERROR: El mensaje del commit no sigue el formato esperado: docker/<categoria>/<imagen>:<version>"
+            echo "Ejemplo válido: docker/python-dev/py_3_12:1.0.0"
+            exit 78
+          fi
+
+          echo "Commit válido: $COMMIT_MSG"
+
+      - name: Parse commit message
+        id: parse_commit
+        run: |
+          COMMIT_MSG="${{ env.msg }}"
+          
+          DOCKER_PATH=$(echo "$COMMIT_MSG" | cut -d ':' -f1)
+          IMAGE_NAME=$(basename "$DOCKER_PATH")
+          IMAGE_TAG=$(echo "$COMMIT_MSG" | cut -d ':' -f2)
+
+          echo "DOCKER_PATH=$DOCKER_PATH" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.
