@@ -25,12 +25,12 @@ jobs:
           COMMIT_MSG="${{ env.msg }}"
 
           if [[ ! "$COMMIT_MSG" =~ ^docker/([^/]+)/([^:]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "❌ ERROR: El mensaje del commit no sigue el formato esperado: docker/<categoria>/<imagen>:<version>"
-            echo "Ejemplo válido: docker/python-dev/py_3_12:1.0.0"
+            echo "❌ ERROR: The commit message does not follow the expected format: <path>/<image_name>:<version>"
+            echo "Valid example: docker/python-dev/py_3_12:1.0.0"
             exit 78
           fi
 
-          echo "Commit válido: $COMMIT_MSG"
+          echo "Valid commit: $COMMIT_MSG"
 
       - name: Parse commit message
         id: parse_commit
