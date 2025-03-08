@@ -2,8 +2,8 @@ name: Build and Push Docker Image to GHCR
 
 on:
   push:
-    tags:
-      - '*-*'
+    branches:
+      - master
 
 jobs:
   build-and-push:
@@ -21,15 +21,14 @@ jobs:
         id: read_index
         run: |
           INDEX_FILE="index.yml"
-          IMAGE_TAG="${GITHUB_REF#refs/tags/}"
-          
-          echo "Tag detected: $IMAGE_TAG"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
 
-          IMAGE_NAME=$(echo "$IMAGE_TAG" | cut -d '-' -f1)
-          IMAGE_TAG_VERSION=$(echo "$IMAGE_TAG" | cut -d '-' -f2)
+          IMAGE_NAME=$(echo "$COMMIT_MSG" | cut -d ':' -f1)
+          IMAGE_TAG_VERSION=$(echo "$COMMIT_MSG" | cut -d ':' -f2)
 
+          echo "Commit message: $COMMIT_MSG"
           echo "Image name: $IMAGE_NAME"
-          echo "Image tag: $IMAGE_TAG_VERSION"
+          echo "Image tag version: $IMAGE_TAG_VERSION"
 
           IMAGE_PATH=$(grep -A 1 "name: $IMAGE_NAME" $INDEX_FILE | grep "path:" | cut -d ' ' -f2)
 
