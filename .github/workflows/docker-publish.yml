@@ -24,8 +24,9 @@ jobs:
         run: |
           COMMIT_MSG="${{ env.msg }}"
 
-          if [[ ! "$COMMIT_MSG" =~ ^docker/([^/]+)/([^:]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "❌ ERROR: The commit message does not follow the expected format: <path>/<image_name>:<version>"
+          # Validar que el commit tenga el formato correcto
+          if [[ ! "$COMMIT_MSG" =~ ^docker/([^/]+)/([^/]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "❌ ERROR: The commit message does not follow the expected format: <path_to_dockerfile>/<image_name>:<version>"
             echo "Valid example: docker/python-dev/py_3_12:1.0.0"
             exit 78
           fi
@@ -36,14 +37,24 @@ jobs:
         id: parse_commit
         run: |
           COMMIT_MSG="${{ env.msg }}"
-          
+
+          # Extraer el path y la imagen del mensaje
           DOCKER_PATH=$(echo "$COMMIT_MSG" | cut -d ':' -f1)
           IMAGE_NAME=$(basename "$DOCKER_PATH")
           IMAGE_TAG=$(echo "$COMMIT_MSG" | cut -d ':' -f2)
 
+          # Guardar las variables en el entorno de GitHub Actions
           echo "DOCKER_PATH=$DOCKER_PATH" >> $GITHUB_ENV
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG -f $DOCKER_PATH .
+
+      - name: Push Docker image to GitHub Container Registry
+        run: |
+          docker push ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG
