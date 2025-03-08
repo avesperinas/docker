@@ -24,10 +24,10 @@ jobs:
         run: |
           COMMIT_MSG="${{ env.msg }}"
 
-          # Nueva expresión regular que permite una cantidad variable de subdirectorios
-          if [[ ! "$COMMIT_MSG" =~ ^docker(/[^/]+)+:([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "❌ ERROR: The commit message does not follow the expected format: <path_to_dockerfile>/<image_name>:<version>"
-            echo "Valid example: docker/python-dev/py_3_12:1.0.0"
+          # Validar que el commit tenga el formato correcto "<path> <image_name>:<version>"
+          if [[ ! "$COMMIT_MSG" =~ ^(.+)\s+([a-zA-Z0-9_-]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "❌ ERROR: The commit message does not follow the expected format: <path> <image_name>:<version>"
+            echo "Valid example: docker/python-dev/py_3_12 python_312:1.0.0"
             exit 78
           fi
 
@@ -38,10 +38,10 @@ jobs:
         run: |
           COMMIT_MSG="${{ env.msg }}"
 
-          # Extraer el path y la imagen del mensaje
-          DOCKER_PATH=$(echo "$COMMIT_MSG" | cut -d ':' -f1)
-          IMAGE_NAME=$(basename "$DOCKER_PATH")
-          IMAGE_TAG=$(echo "$COMMIT_MSG" | cut -d ':' -f2)
+          # Extraer el path (Dockerfile path) y la imagen del mensaje
+          DOCKER_PATH=$(echo "$COMMIT_MSG" | cut -d ' ' -f1)
+          IMAGE_NAME=$(echo "$COMMIT_MSG" | cut -d ' ' -f2 | cut -d ':' -f1)
+          IMAGE_TAG=$(echo "$COMMIT_MSG" | cut -d ' ' -f2 | cut -d ':' -f2)
 
           # Guardar las variables en el entorno de GitHub Actions
           echo "DOCKER_PATH=$DOCKER_PATH" >> $GITHUB_ENV
@@ -53,7 +53,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG -f $DOCKER_PATH .
+          # Asegurarse de que el Dockerfile se encuentra en la ruta correcta
+          docker build -t ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG -f $DOCKER_PATH/Dockerfile .
 
       - name: Push Docker image to GitHub Container Registry
         run: |
