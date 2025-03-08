@@ -1,4 +1,4 @@
-# Oficial python3.12 image
+# Python3.12 image
 FROM python:3.12
 WORKDIR /workdir
 
