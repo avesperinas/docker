@@ -24,8 +24,8 @@ jobs:
         run: |
           COMMIT_MSG="${{ env.msg }}"
 
-          # Validar que el commit tenga el formato correcto
-          if [[ ! "$COMMIT_MSG" =~ ^docker/([^/]+)/([^/]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+          # Nueva expresión regular que permite una cantidad variable de subdirectorios
+          if [[ ! "$COMMIT_MSG" =~ ^docker(/[^/]+)+:([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
             echo "❌ ERROR: The commit message does not follow the expected format: <path_to_dockerfile>/<image_name>:<version>"
             echo "Valid example: docker/python-dev/py_3_12:1.0.0"
             exit 78
