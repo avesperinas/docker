@@ -1,0 +1,3 @@
+images:
+  - name: python_312
+    path: docker/python-dev/py_3_12

@@ -2,8 +2,8 @@ name: Build and Push Docker Image to GHCR
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - '*:*'
 
 jobs:
   build-and-push:
@@ -12,50 +12,45 @@ jobs:
     permissions:
       contents: read
       packages: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract commit message
-        id: commit_message
-        run: echo "msg=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
-
-      - name: Validate commit message format
+      - name: Read index.yml
+        id: read_index
         run: |
-          COMMIT_MSG="${{ env.msg }}"
+          INDEX_FILE="index.yml"
+          IMAGE_TAG="${GITHUB_REF#refs/tags/}"
+          
+          echo "Tag detected: $IMAGE_TAG"
 
-          # Validar que el commit tenga el formato correcto "<path> <image_name>:<version>"
-          if [[ ! "$COMMIT_MSG" =~ ^(.+)\s+([a-zA-Z0-9_-]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "❌ ERROR: The commit message does not follow the expected format: <path> <image_name>:<version>"
-            echo "Valid example: docker/python-dev/py_3_12 python_312:1.0.0"
+          IMAGE_NAME=$(echo "$IMAGE_TAG" | cut -d ':' -f1)
+          IMAGE_TAG_VERSION=$(echo "$IMAGE_TAG" | cut -d ':' -f2)
+
+          echo "Image name: $IMAGE_NAME"
+          echo "Image tag: $IMAGE_TAG_VERSION"
+
+          IMAGE_PATH=$(grep -A 1 "name: $IMAGE_NAME" $INDEX_FILE | grep "path:" | cut -d ' ' -f2)
+
+          if [ -z "$IMAGE_PATH" ]; then
+            echo "❌ ERROR: Image '$IMAGE_NAME' not found in index.yml"
             exit 78
           fi
 
-          echo "Valid commit: $COMMIT_MSG"
+          echo "Image path: $IMAGE_PATH"
 
-      - name: Parse commit message
-        id: parse_commit
-        run: |
-          COMMIT_MSG="${{ env.msg }}"
-
-          # Extraer el path (Dockerfile path) y la imagen del mensaje
-          DOCKER_PATH=$(echo "$COMMIT_MSG" | cut -d ' ' -f1)
-          IMAGE_NAME=$(echo "$COMMIT_MSG" | cut -d ' ' -f2 | cut -d ':' -f1)
-          IMAGE_TAG=$(echo "$COMMIT_MSG" | cut -d ' ' -f2 | cut -d ':' -f2)
-
-          # Guardar las variables en el entorno de GitHub Actions
-          echo "DOCKER_PATH=$DOCKER_PATH" >> $GITHUB_ENV
+          echo "IMAGE_PATH=$IMAGE_PATH" >> $GITHUB_ENV
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "IMAGE_TAG_VERSION=$IMAGE_TAG_VERSION" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
       - name: Build Docker image
         run: |
-          # Asegurarse de que el Dockerfile se encuentra en la ruta correcta
-          docker build -t ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG -f $DOCKER_PATH/Dockerfile .
+          docker build -t ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG_VERSION -f $IMAGE_PATH/Dockerfile .
 
       - name: Push Docker image to GitHub Container Registry
         run: |
-          docker push ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG
+          docker push ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG_VERSION
