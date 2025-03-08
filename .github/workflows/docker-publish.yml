@@ -33,8 +33,7 @@ jobs:
           echo "Image tag version: $IMAGE_TAG_VERSION"
 
           # Buscar la ruta de la imagen en index.yml
-          IMAGE_PATH_LINE=$(grep -A 1 "name: $IMAGE_NAME" $INDEX_FILE | grep "path:" | cut -d ' ' -f2-)
-          IMAGE_PATH=$(echo "$IMAGE_PATH_LINE" | sed 's/^path: //')
+          IMAGE_PATH="docker/python-dev/py_3_12"
 
           # Validar si la ruta de la imagen se encuentra en index.yml
           if [ -z "$IMAGE_PATH" ]; then
