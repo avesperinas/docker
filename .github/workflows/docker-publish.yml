@@ -19,27 +19,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read image name and version
-        id: read_index
+      - name: Push Docker image to GHCR if commit message contains image version
+        id: docker-publish
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B)
+
+          # Check if the pipeline is triggered by a commit message with the format "image_name:version"
           if [[ $COMMIT_MSG =~ ^([a-zA-Z0-9_-]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+
             IMAGE_NAME="${BASH_REMATCH[1]}"
             VERSION="${BASH_REMATCH[2]}"
             echo "image_name=$IMAGE_NAME" >> "$GITHUB_ENV"
             echo "version=$VERSION" >> "$GITHUB_ENV"
+
+            # Log in to GitHub Container Registry and build the Docker image
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+            docker build -t ghcr.io/${{ github.repository_owner }}/${{ env.image_name }}:${{ env.version }} -f docker/${{ env.image_name }}/Dockerfile .
+            docker push ghcr.io/${{ github.repository_owner }}/${{ env.image_name }}:${{ env.version }}
+
           else
             echo "Commit message does not contain a new version of the image" >&2
             exit 0
           fi
-
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-
-      - name: Build Docker image
-        run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/${{ env.image_name }}:${{ env.version }} -f docker/${{ env.image_name }}/Dockerfile .
-
-      - name: Push Docker image to GitHub Container Registry
-        run: |
-          docker push ghcr.io/${{ github.repository_owner }}/${{ env.image_name }}:${{ env.version }}
+          
