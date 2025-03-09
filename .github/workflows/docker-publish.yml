@@ -3,7 +3,9 @@ name: Build and Push Docker Image to GHCR
 on:
   push:
     branches:
-      - master  # Se activará cuando se haga push a master
+      - master
+    paths:
+      - '**'
 
 jobs:
   build-and-push:
@@ -17,44 +19,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install yq
-        run: |
-          # Instalar yq (si no está disponible)
-          sudo apt-get update && sudo apt-get install -y yq
-
-      - name: Read index.yml and extract image path
+      - name: Read image name and version
         id: read_index
         run: |
-          INDEX_FILE="index.yml"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
-
-          IMAGE_NAME=$(echo "$COMMIT_MSG" | cut -d ':' -f1)
-          IMAGE_TAG_VERSION=$(echo "$COMMIT_MSG" | cut -d ':' -f2)
-
-          echo "Commit message: $COMMIT_MSG"
-          echo "Image name: $IMAGE_NAME"
-          echo "Image tag version: $IMAGE_TAG_VERSION"
-
-          IMAGE_PATH=$(yq eval ".images[] | select(.name == \"$IMAGE_NAME\") | .path" $INDEX_FILE)
-
-          if [ -z "$IMAGE_PATH" ]; then
-            echo "❌ ERROR: Image '$IMAGE_NAME' not found in index.yml"
-            exit 78
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if [[ $COMMIT_MSG =~ ^([a-zA-Z0-9_-]+):([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            IMAGE_NAME="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}"
+            echo "image_name=$IMAGE_NAME" >> "$GITHUB_ENV"
+            echo "version=$VERSION" >> "$GITHUB_ENV"
+          else
+            echo "Commit message does not match expected format (image_name:X.Y.Z)."
+            exit 1
           fi
-
-          echo "Image path: $IMAGE_PATH"
-
-          echo "IMAGE_PATH=$IMAGE_PATH" >> $GITHUB_ENV
-          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          echo "IMAGE_TAG_VERSION=$IMAGE_TAG_VERSION" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
       - name: Build Docker image
         run: |
-          docker build -t ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG_VERSION -f $IMAGE_PATH/Dockerfile $IMAGE_PATH
+          docker build -t ghcr.io/${{ github.repository_owner }}/${{ env.image_name }}:${{ env.version }} -f docker/${{ env.image_name }}/Dockerfile .
 
       - name: Push Docker image to GitHub Container Registry
         run: |
-          docker push ghcr.io/$GITHUB_REPOSITORY/$IMAGE_NAME:$IMAGE_TAG_VERSION
+          docker push ghcr.io/${{ github.repository_owner }}/${{ env.image_name }}:${{ env.version }}
